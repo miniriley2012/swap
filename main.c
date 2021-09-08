@@ -8,7 +8,13 @@
 
 void print_usage();
 
-void print_error(const char *format, ...) __printflike(1, 2);
+void print_error(const char *format, ...)
+#ifdef __GNUC__
+    __attribute__((format(printf, 1, 2)));
+#else
+    __printflike(1, 2);
+#endif
+
 
 int main(int argc, char **argv) {
     static int help_flag;
