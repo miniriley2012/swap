@@ -8,12 +8,6 @@ A small utility to swap the names of two files.
 swap [-v] file1 file2
 ```
 
-## Using As a Library
-
-If you want to use swap as a library for some reason then a static library can be built using CMake.
-
-Swap only exports a single function `swap_names`, that has the same interface as `renameat`.
-
 ## Known Issues
 
 On systems that support `RENAME_EXCHANGE` (or `RENAME_SWAP` on macOS) swap will issue a system call that

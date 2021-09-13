@@ -1,14 +1,13 @@
-#include <swap/swap.h>
+#include <stdio.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <sys/fcntl.h>
-#include <stdarg.h>
 #include <errno.h>
 #include <string.h>
 
 void print_usage();
 
-void print_error(const char *format, ...) __printflike(1, 2);
+int swap_names(int first_fd, const char *first_path, int second_fd, const char *second_path);
 
 int main(int argc, char **argv) {
     static int help_flag;
@@ -54,7 +53,7 @@ int main(int argc, char **argv) {
     const char *to = argv[optind + 1];
 
     if (swap_names(AT_FDCWD, from, AT_FDCWD, to) != 0) {
-        print_error("swap %s with %s: %s\n", from, to, strerror(errno));
+        fprintf(stderr, "swap: swap %s with %s: %s\n", from, to, strerror(errno));
         return -1;
     }
 
@@ -69,10 +68,19 @@ void print_usage() {
     printf("usage: swap [-v] file1 file2\n");
 }
 
-void print_error(const char *format, ...) {
-    fprintf(stderr, "swap: ");
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    va_end(args);
+int swap_names(int first_fd, const char *first_path, int second_fd, const char *second_path) {
+#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_12
+    return renameatx_np(first_fd, first_path, second_fd, second_path, RENAME_SWAP);
+#elif __has_feature(renameat2)
+    return renameat2(first_fd, first_path, second_fd, second_path, RENAME_EXCHANGE);
+#else
+    // TODO make this an atomic operation
+    char temp_name[7] = "XXXXXX";
+    if (!mktemp(temp_name)) return -1;
+    int err;
+    if ((err = renameat(first_fd, first_path, first_fd, temp_name)) != 0) return err;
+    if ((err = renameat(second_fd, second_path, first_fd, first_path)) != 0) return err;
+    if ((err = renameat(first_fd, temp_name, second_fd, second_path)) != 0) return err;
+    return 0;
+#endif
 }
